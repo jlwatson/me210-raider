@@ -4,10 +4,10 @@
  * Created 02/20/16
  */
 
-#define FRONT 3
+#define FRONT 4
 #define RIGHT 5
 #define LEFT 6
-#define BACK 9
+#define BACK 10
 
 void setup() {
   Serial.begin(9600);
@@ -23,6 +23,8 @@ void setup() {
   
   pinMode(RIGHT, INPUT_PULLUP);
   digitalWrite(RIGHT, HIGH);
+
+  Serial.println("TURN ON THE POWER SUPPLY");
 }
 
 /*
