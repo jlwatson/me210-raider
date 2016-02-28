@@ -15,6 +15,7 @@ bool tokenTestLoop(char userInput) {
     ServoLeft.write(180);     // Rotate servo clockwise
     ServoRight.write(0);
     ServoMiddle.write(135);
+    return true;
   }  
   return false;
 }

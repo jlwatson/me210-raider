@@ -23,7 +23,7 @@
 #include "token_delivery.h"
 #include "bumper.h"
 
-#define DEBUG true
+#define DEBUG false
 
 // Testing states
 #define TEST_NONE   0
@@ -63,6 +63,8 @@ void loop() {
   if(inputText.length() > 0){
     inputChar = inputText.charAt(0);
     inputChar = isLowerCase(inputChar) ? 'A' + (inputChar - 'a') : inputChar;
+  }
+  if(testState == TEST_NONE){
     parseCommand(inputChar);
   }
   
@@ -71,26 +73,32 @@ void loop() {
       if(irTestLoop()){
         Serial.println("IR test completed");
         testState = TEST_NONE;
+        Serial.println(TEST_MENU);
       }
       break;
     case TEST_BUMPER:
+      testState = TEST_NONE;
+      Serial.println(TEST_MENU);
       break;
     case TEST_MOTOR:
       if(motorTestLoop(inputChar)){
         Serial.println("Motor test completed");
         testState = TEST_NONE;
+        Serial.println(TEST_MENU);
       }
       break;
     case TEST_TAPE:
       if(tapeTestLoop(inputChar)){
         Serial.println("Tape test completed");
         testState = TEST_NONE;
+        Serial.println(TEST_MENU);
       }
       break;
     case TEST_TOKEN:
       if(tokenTestLoop(inputChar)){
         Serial.println("Token test completed");
         testState = TEST_NONE;
+        Serial.println(TEST_MENU);
       }
       break;
   }
@@ -109,6 +117,7 @@ void parseCommand(char inputChar){
       break;
 
     case 'B':
+      testState = TEST_BUMPER;
       Serial.println("Not implemented yet :|");
       break;
 
@@ -125,11 +134,6 @@ void parseCommand(char inputChar){
     case 'A':
       testState = TEST_TOKEN;
       Serial.println("Press any key + <enter> to move arms");
-      break;
-
-    default: 
-      Serial.println("Command not recognized");
-      Serial.println(TEST_MENU);
       break;
   }
     

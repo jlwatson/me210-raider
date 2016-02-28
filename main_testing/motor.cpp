@@ -68,7 +68,6 @@ bool motorTestLoop(char userChar) {
       Serial.println("Motor test: finished");
 #endif
       return true;
-    default: Serial.println("Motor test - command not recognized");
   }
   return false;
 }

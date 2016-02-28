@@ -50,4 +50,5 @@ bool tapeTestLoop(char userChar) {
 //    }
     lastState = currentState;
   }
+  return false;
 }
