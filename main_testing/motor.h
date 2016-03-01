@@ -18,7 +18,7 @@
 #define STOP         4
 
 #define FORWARD1     HIGH //high is forward for motor 1
-#define FORWARD2     LOW  //low is forward for motor 2
+#define FORWARD2     HIGH  //low is forward for motor 2
 #define MOTOR1_SPEED 200
 #define MOTOR2_SPEED 150
 

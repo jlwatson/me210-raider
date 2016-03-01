@@ -20,7 +20,7 @@
 #include "IR_sensor.h"
 #include "motor.h"
 #include "tape_sensor.h"
-#include "token_delivery.h"
+#include "servo.h"
 #include "bumper.h"
 
 #define DEBUG false
@@ -95,7 +95,7 @@ void loop() {
       }
       break;
     case TEST_TOKEN:
-      if(tokenTestLoop(inputChar)){
+      if(servoTestLoop(inputChar)){
         Serial.println("Token test completed");
         testState = TEST_NONE;
         Serial.println(TEST_MENU);
