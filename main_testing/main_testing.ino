@@ -84,8 +84,11 @@ bool bumperTestLoop();
 
 #define FORWARD1     LOW   //high is forward for motor 1
 #define FORWARD2     HIGH  //low is forward for motor 2
-#define MOTOR1_SPEED 220
-#define MOTOR2_SPEED 210
+#define MOTOR1_SPEED 228
+#define MOTOR2_SPEED 227
+
+#define MOTOR1_BACK 236
+#define MOTOR2_BACK 220
 
 bool motorTestLoop(char userInput);
 
@@ -146,8 +149,8 @@ void doBypass(){
 
   analogWrite(MOTOR_EN1, 0);
   analogWrite(MOTOR_EN2, 0);
-  Serial.print("Front: "); Serial.println(digitalRead(FRONT_BUMPER));
-  Serial.print("Back: "); Serial.println(digitalRead(BACK_BUMPER));
+  Serial.print("IR: "); Serial.println(digitalRead(IR_INPUT));
+  
 }
 
 void loop() {
@@ -223,8 +226,8 @@ void parseCommand(char inputChar){
       Serial.println("Rotating to find IR beacon.....");
 
       //motor initial speed setup
-      analogWrite(MOTOR_EN1, MOTOR1_SPEED*.94);
-      analogWrite(MOTOR_EN2, MOTOR2_SPEED*.94);
+      analogWrite(MOTOR_EN1, MOTOR1_SPEED*.8);
+      analogWrite(MOTOR_EN2, MOTOR2_SPEED*.8);
       digitalWrite(MOTOR_DIR1, HIGH);
       break;
 
@@ -302,6 +305,7 @@ unsigned char TestForFLAPBeacon(void){
   unsigned char EventOccurred;
   static unsigned char LastIRLevel = HIGH;
   unsigned char ThisIRLevel = digitalRead(IR_INPUT);
+  Serial.println(ThisIRLevel);
   EventOccurred = ((ThisIRLevel == LOW) && (LastIRLevel == HIGH));
   LastIRLevel = ThisIRLevel;
   return EventOccurred;
@@ -324,7 +328,7 @@ unsigned char HitFLAPLine(void){
   return false;
 }
 void RespToFLAPBeacon(void){
-  TMRArd_InitTimer(0, 200);    //continue rotate for 200 milliseconds
+  TMRArd_InitTimer(0, 0);    //continue rotate for 200 milliseconds
 }
 
 void RespToOriTimerExp(void){
@@ -391,8 +395,8 @@ bool motorTestLoop(char userChar) {
       break;
 
     case 'S':
-      analogWrite(MOTOR_EN1, 220);
-      analogWrite(MOTOR_EN2, 180);
+      analogWrite(MOTOR_EN1, MOTOR1_BACK);
+      analogWrite(MOTOR_EN2, MOTOR2_BACK);
       digitalWrite(MOTOR_DIR1, !FORWARD1);
       digitalWrite(MOTOR_DIR2, !FORWARD2);
 #if DEBUG
@@ -493,25 +497,6 @@ bool tapeTestLoop(char userChar) {
 
   if(currentState != lastState){
     printState(currentState);
-//    switch(currentState){
-//      //st: BRLF
-//      case B0000: Serial.println("Lost");                     break;
-//      case B0001: Serial.println("Tape in front");            break;
-//      case B0010: Serial.println("Tape to left");             break;
-//      case B0100: Serial.println("Tape to right");            break;
-//      case B1000: Serial.println("Tape in back");             break;
-//      case B0011: Serial.println("Inverse left turn corner"); break;
-//      case B0110: Serial.println("Crossing line");            break;
-//      case B1001: Serial.println("On line");                  break;
-//      case B0101: Serial.println("Inverse right turn corner");break;
-//      case B1010: Serial.println("Left turn corner");         break;
-//      case B1100: Serial.println("Right turn corner");        break;
-//      case B1011: Serial.println("Left T junction");          break;
-//      case B1101: Serial.println("Right T junction");         break;
-//      case B1110: Serial.println("Forward T junction");       break;
-//      case B0111: Serial.println("Backwards T junction");     break;
-//      case B1111: Serial.println("Cross junction");           break;
-//    }
     lastState = currentState;
   }
   return false;
