@@ -17,8 +17,8 @@
 #define T_TURN_DELAY 1000
 #define BUCKET_DELAY 1000
 #define BUCKET_FORWARD_TIME 300
-#define LOAD_BACKUP_TIME 300
-#define LOAD_TIME    5000
+#define LOAD_BACKUP_TIME 100
+#define LOAD_TIME    3000
 
 // Motor constants
 #define FORWARD1     LOW   //high is forward for motor 1
@@ -30,10 +30,13 @@
 #define GO_RIGHT     3
 #define STOP         4
 
-#define MOTOR1_FORWARD 165
-#define MOTOR2_FORWARD 165
-#define MOTOR1_BACK    130
-#define MOTOR2_BACK    130
+#define MOTOR1_FORWARD 170
+#define MOTOR2_FORWARD 170
+#define MOTOR1_BACK    160
+#define MOTOR2_BACK    160
+
+#define BACKALL1       190
+#define BACKALL2       173
 
 // PINS AND SERVOS
 #define IR_INPUT     2
@@ -60,7 +63,7 @@
 #define LINE_FOLLOW_TO_T_STATE 5
 #define RIGHT_TURN_STATE 6
 #define LINE_FOLLOW_TO_BUCKET_STATE 7
-#define LINE_FOLLOW_BACK_STATE 8
+#define BACK_STATE 8
 #define LOADING_STATE 9
 #define STOP_STATE 10
 
@@ -171,6 +174,7 @@ void loop() {
               delay(1000);
               turnRight(0);
               goForward();
+              
               global_state = FORWARD_TO_TAPE_STATE;
           }   
           break;
@@ -178,16 +182,16 @@ void loop() {
           if(tapeFront(tape_state)){ // forward sensor only; add if necessary
               stopAll();
               delay(1000);
-              //goBack();
               turnRight(0);
+              delay(5);
               goBack();
-              delay(20);
+              delay(50);
               turnRight(0);
               global_state = TURN_ONTO_LINE_STATE;
           }        
           break;
       case TURN_ONTO_LINE_STATE:
-          if(tapeFront(tape_state) && tapeBack(tape_state)){
+          if(detectTapeState(tape_state, 0B1001)){
               stopAll();
               delay(1000);
               goForward();
@@ -198,31 +202,29 @@ void loop() {
       case LINE_FOLLOW_TO_BUCKET_STATE:
           if(bumperTriggered()){
               delay(300);
-             
               stopAll();
               deployTokens();
-              global_state = STOP_STATE;
-              goBack();
-              delay(BUCKET_FORWARD_TIME);
+              global_state = BACK_STATE;
+              goBack(BACKALL1, BACKALL2);
+              delay(500);
               currentFollowState = FOLLOW_FORWARD;
           }
           break;
-      case LINE_FOLLOW_BACK_STATE:
-          if(detectTapeState(tape_state, 0B0111)){
-              goBack();
+      case BACK_STATE:
+          //if(tapeLeft(tape_state) && tapeRight(tape_state)){
+          if(tapeFront(tape_state) && !tapeRight(tape_state) && !tapeLeft(tape_state)){
               delay(LOAD_BACKUP_TIME);
               stopAll();
-              global_state = STOP_STATE;
-          }else lineFollowBack(tape_state);
+              global_state = LOADING_STATE;
+          };
           break;
       case LOADING_STATE:
           delay(LOAD_TIME);
-          goForward();
+          goForward(MOTOR1_FORWARD-15, MOTOR2_FORWARD);
           delay(LOAD_BACKUP_TIME);
           global_state = LINE_FOLLOW_TO_BUCKET_STATE;
           break;
       case STOP_STATE:
-          // woot do nothing
           break;
     }
   }
@@ -256,9 +258,6 @@ void turnLeft(unsigned int t_delay){
 
     analogWrite(MOTOR_EN1, MOTOR1_FORWARD);
     analogWrite(MOTOR_EN2, -MOTOR2_FORWARD); // turn left
-
-//    analogWrite(MOTOR_EN1, 100);
-//    analogWrite(MOTOR_EN2, -100); // turn 
 }
 
 void turnRight(unsigned int t_delay){
@@ -306,8 +305,7 @@ void goForward(){
     goForward(MOTOR1_FORWARD, MOTOR2_FORWARD);
 }
 
-void goBack(){
-
+void goBack(int m1, int m2){
     digitalWrite(MOTOR_DIR1, !FORWARD1);
     digitalWrite(MOTOR_DIR2, !FORWARD2);
 
@@ -323,8 +321,12 @@ void goBack(){
 
     delay(100);
 
-    analogWrite(MOTOR_EN1, MOTOR1_BACK);
-    analogWrite(MOTOR_EN2, MOTOR2_BACK); // turn right 
+    analogWrite(MOTOR_EN1, m1);
+    analogWrite(MOTOR_EN2, m2);
+}
+
+void goBack(){
+    goBack(MOTOR1_BACK, MOTOR2_BACK);
 }
 
 /******************
