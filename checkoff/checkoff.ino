@@ -1,46 +1,41 @@
 /*
  * checkoff
  * ===================
- * Code necessary to complete final checkoff requirements
+ * Code necessary to complete final checkoff requirements.
+ * Detects IR beacon and uses a mixture of dead-reckoning, tape
+ * sensor inputs, and bumpers to deliver the Force Tokens.
  * 
  * The Raiders - ME210
  * 03/03/2016
  */
 
 #include <Timers.h>   // For motor control
-#include <Servo.h> // For servo-controlled token arms
+#include <Servo.h>    // For servo-controlled token arms
 
-#define DEBUG false
+// Debug printing
+#define DEBUG  false
+// Bypass function to test individual sensors without running the full state machine
 #define BYPASS false
 
-#define TURN_TIME    0
-#define T_TURN_DELAY 1000
-#define BUCKET_DELAY 1000
 #define BUCKET_FORWARD_TIME 300
-#define LOAD_BACKUP_TIME 300
-#define LOAD_TIME    5000
+#define LOAD_BACKUP_TIME    300
+#define LOAD_TIME           5000
 
 // Motor constants
-#define FORWARD1     LOW   //high is forward for motor 1
-#define FORWARD2     HIGH  //low is forward for motor 2
-
-#define GO_FORWARD   0
-#define GO_BACK      1
-#define GO_LEFT      2
-#define GO_RIGHT     3
-#define STOP         4
-
+#define FORWARD1       LOW   //high is forward for motor 1
+#define FORWARD2       HIGH  //low is forward for motor 2
+// Motor PWM speed tuning to achieve straight forward/backwards movement
 #define MOTOR1_FORWARD 165
 #define MOTOR2_FORWARD 165
 #define MOTOR1_BACK    130
 #define MOTOR2_BACK    130
 
-// PINS AND SERVOS
+// Input Pins 
 #define IR_INPUT     2
 #define TAPE_BACK    6  // PWM
 #define TAPE_FRONT   4
 #define TAPE_RIGHT   9  // PWM
-#define TAPE_LEFT    10  // PWM
+#define TAPE_LEFT    10 // PWM
 #define MOTOR_DIR2   7
 #define MOTOR_DIR1   8
 #define MOTOR_EN1    5  // PWM
@@ -52,22 +47,12 @@
 #define BACK_BUMPER  A5
 
 // States
-#define IR_SEEK_STATE 0
-#define FORWARD_TO_TAPE_STATE 1
-#define TURN_ONTO_LINE_STATE 2
-#define LINE_FOLLOW_TO_CORNER_STATE 3
-#define LEFT_TURN_STATE 4
-#define LINE_FOLLOW_TO_T_STATE 5
-#define RIGHT_TURN_STATE 6
-#define LINE_FOLLOW_TO_BUCKET_STATE 7
-#define LINE_FOLLOW_BACK_STATE 8
-#define LOADING_STATE 9
-#define STOP_STATE 10
-
-// IR SEEK states
-#define   ROT_SEARCHING     0
-#define   ROT_ORI           1
-#define   TO_BEACON         2
+#define IR_SEEK_STATE               0
+#define FORWARD_TO_TAPE_STATE       1
+#define TURN_ONTO_LINE_STATE        2
+#define LINE_FOLLOW_TO_BUCKET_STATE 3
+#define LINE_FOLLOW_BACK_STATE      4
+#define LOADING_STATE               5
 
 // global state
 static int global_state;
@@ -77,21 +62,24 @@ static Servo ServoLeft;
 static Servo ServoRight;
 static Servo ServoMiddle;
 
-// Bypass code for quick testing
+// Bypass code for quick testing (#if BYPASS)
 void doBypass(){
 
   // turn motors off if necessary
   analogWrite(MOTOR_EN1, 0);
   analogWrite(MOTOR_EN2, 0);
 
- // Serial.println(digitalRead(IR_INPUT));
- Serial.print("Front: "); Serial.println(digitalRead(FRONT_BUMPER));
- Serial.print("Back: ");  Serial.println(digitalRead(BACK_BUMPER));
+  // Serial.println(digitalRead(IR_INPUT));
+  Serial.print("Front: "); Serial.println(digitalRead(FRONT_BUMPER));
+  Serial.print("Back: ");  Serial.println(digitalRead(BACK_BUMPER));
 }
+
+// Function prototypes
 
 unsigned char getState();
 
 bool detectTapeState(unsigned char current_state, unsigned char desired);
+
 void stopAll();
 void turnLeft(unsigned int t_delay);
 void turnRight(unsigned int t_delay);
@@ -102,6 +90,7 @@ void goBack();
 /******************
  * LINE_FOLLOWING *
  ******************/
+// Note: not used in checkoff code in favor of dead reckoning
 #define FOLLOW_FORWARD 0
 #define FOLLOW_LEFT    1
 #define FOLLOW_RIGHT   2
@@ -112,13 +101,15 @@ void lineFollowBack(unsigned char tape_state);
 
 bool bumperTriggered();
 void deployTokens();
+
 unsigned char getState();
 bool tapeLeft(unsigned char tape_state);
 bool tapeRight(unsigned char tape_state);
 bool tapeFront(unsigned char tape_state);
 bool tapeBack(unsigned char tape_state);
 
-//// ****************************** ////
+
+//// *********** SETUP ************ ////
 
 void setup() {
 
@@ -128,35 +119,42 @@ void setup() {
 
     global_state = IR_SEEK_STATE;
     
+    // Initialize motor control pins
     pinMode(MOTOR_EN1, OUTPUT);
     pinMode(MOTOR_DIR1, OUTPUT);
     pinMode(MOTOR_EN2, OUTPUT);
     pinMode(MOTOR_DIR2, OUTPUT);
-    
-    digitalWrite(MOTOR_DIR1, !FORWARD1); // set motors to turn initially for IR sensing
+
+    // set motors to turn initially for IR sensing
+    digitalWrite(MOTOR_DIR1, !FORWARD1); 
     digitalWrite(MOTOR_DIR2, FORWARD2);
 
     analogWrite(MOTOR_EN1, MOTOR1_FORWARD);
     analogWrite(MOTOR_EN2, MOTOR2_FORWARD);
   
-    //IR sensor
+    // IR sensor
     pinMode(IR_INPUT, INPUT);
     
+    // Tape sensors
     pinMode(TAPE_FRONT, INPUT_PULLUP);
     pinMode(TAPE_BACK, INPUT_PULLUP);
     pinMode(TAPE_LEFT, INPUT_PULLUP);
     pinMode(TAPE_RIGHT, INPUT_PULLUP);
   
+    // Init servos
     ServoLeft.attach(SERVO_LEFT);
     ServoMiddle.attach(SERVO_MIDDLE);
     ServoRight.attach(SERVO_RIGHT);
 
-    // put servos into position (disabled to avoid tokens flying out)
+    // Put servos into position
     ServoLeft.write(128);
     ServoRight.write(0);
     ServoMiddle.write(120);
   }
 }
+
+
+//// *********** MAIN LOOP ************ ////
 
 void loop() {
 
@@ -175,14 +173,16 @@ void loop() {
           }   
           break;
       case FORWARD_TO_TAPE_STATE:
-          if(tapeFront(tape_state)){ // forward sensor only; add if necessary
+          if(tapeFront(tape_state)){
               stopAll();
               delay(1000);
-              //goBack();
+
+              // Dead-reckoning backup to account for wheel axis offset and turn radius
               turnRight(0);
               goBack();
               delay(20);
               turnRight(0);
+
               global_state = TURN_ONTO_LINE_STATE;
           }        
           break;
@@ -192,19 +192,16 @@ void loop() {
               delay(1000);
               goForward();
               global_state = LINE_FOLLOW_TO_BUCKET_STATE;
-              currentFollowState = FOLLOW_FORWARD;
           }       
           break;
       case LINE_FOLLOW_TO_BUCKET_STATE:
           if(bumperTriggered()){
-              delay(300);
-             
+              delay(300); // Push up against the bucket to align better
               stopAll();
               deployTokens();
-              global_state = STOP_STATE;
+              global_state = LINE_FOLLOW_BACK_STATE;
               goBack();
               delay(BUCKET_FORWARD_TIME);
-              currentFollowState = FOLLOW_FORWARD;
           }
           break;
       case LINE_FOLLOW_BACK_STATE:
@@ -212,17 +209,14 @@ void loop() {
               goBack();
               delay(LOAD_BACKUP_TIME);
               stopAll();
-              global_state = STOP_STATE;
-          }else lineFollowBack(tape_state);
+              global_state = LOADING_STATE;
+          }
           break;
       case LOADING_STATE:
           delay(LOAD_TIME);
           goForward();
           delay(LOAD_BACKUP_TIME);
           global_state = LINE_FOLLOW_TO_BUCKET_STATE;
-          break;
-      case STOP_STATE:
-          // woot do nothing
           break;
     }
   }
@@ -256,9 +250,6 @@ void turnLeft(unsigned int t_delay){
 
     analogWrite(MOTOR_EN1, MOTOR1_FORWARD);
     analogWrite(MOTOR_EN2, -MOTOR2_FORWARD); // turn left
-
-//    analogWrite(MOTOR_EN1, 100);
-//    analogWrite(MOTOR_EN2, -100); // turn 
 }
 
 void turnRight(unsigned int t_delay){
@@ -330,6 +321,8 @@ void goBack(){
 /******************
  * LINE_FOLLOWING *
  ******************/
+// Note: not used in checkoff code in favor of dead-reckoning
+
 void lineFollow(unsigned char tape_state){
 
     if(currentFollowState == FOLLOW_FORWARD){
@@ -376,6 +369,7 @@ void lineFollowBack(unsigned char tape_state){
         }
     } 
 }
+
 /*****************
  * IR_SEEK STATE *
  *****************/
